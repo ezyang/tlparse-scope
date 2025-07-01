@@ -1,0 +1,34 @@
+We are going to write a HTML/TS frontend for a JSONL viewer.
+
+- You should accept the JSONL via file picker or dragging it into the page or
+  a URL (which is assumed to have CORS setup so that we can view the result).
+  Hide the upload/load dialog after you've loaded the JSON.
+- The JSONL file should be parsed in its entirety and loaded into memory as a
+  single array of all the entries
+
+We're going to display the JSON as a table. Consult FORMAT.md for the high
+level structure.  Handle the string table entry specially.  Don't put it in
+rows, put it in a global. When we process dynamo_start event, replace the
+interned strings in its stack with the full strings.
+
+We will have column for each ordinary field.  Then the actual
+value's key gets its own column, and then the raw JSON of the contents. The
+raw JSON view should be line-wrapped but monospace.  Add a single checkbox to
+toggle showing less important columns:
+timestamp/pathname/lineno/has_payload/payload_filename, and have them be
+hidden by default.  When columns are hidden we should NOT generate DOM for
+them at all.  Consolidate frame_id/frame_compile_id and attempt into a single
+column using $frame_id/${frame_compile_id}_$attempt formatting (omit the _0
+when attempt is 0).
+
+There is a test fixture with the sample JSONL data at tests/fixtures/autotune_with_compile_id.jsonl
+
+For the page itself, no max width, use all of the browser width. Don't have
+too much margin on the sides of page. The only scrolling should be the main
+window.
+
+For every major feature, write a vitest playwright test for it.  There is no
+existing test file so you will have to introduce best practice scaffolding.
+Ensure tests are precise, don't overly hedge test assertions, run tests to
+figure out if there are problems.  Ensure the tests are run in parallel by
+default.
