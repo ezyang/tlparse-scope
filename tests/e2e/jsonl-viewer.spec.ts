@@ -271,6 +271,8 @@ test.describe('JSONL Viewer', () => {
 
     // Should show table container and 0 entries
     await expect(page.locator('#table-container')).toBeVisible();
+    // Wait a moment for async processing
+    await page.waitForTimeout(100);
     await expect(page.locator('#entry-count')).toContainText('0 entries');
   });
 
