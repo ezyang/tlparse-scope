@@ -12,8 +12,13 @@ interface ProcessedEntry {
 class JSONLViewer {
   private stringTable: string[] = [];
   private entries: ProcessedEntry[] = [];
+  private filteredEntries: ProcessedEntry[] = [];
   private showAllColumns = false;
   private rawJSONL: string = '';
+  private selectedEventKey: string = 'all';
+  private selectedFrame: string = 'all';
+  private eventDataColumns: string[] = [];
+  private visibleEventColumns: Set<string> = new Set();
   
   private readonly hiddenColumns = [
     'timestamp', 'pathname', 'lineno', 'has_payload', 'payload_filename', 'rank', 'process', 'thread'
@@ -49,12 +54,36 @@ class JSONLViewer {
       </div>
       <div class="table-container" id="table-container" style="display: none;">
         <div class="table-controls">
-          <label>
-            <input type="checkbox" id="show-all-columns">
-            Show all columns
-          </label>
+          <div class="control-group">
+            <label>Event:</label>
+            <select id="event-filter" class="filter-select">
+              <option value="all">All Events</option>
+            </select>
+          </div>
+          <div class="control-group">
+            <label>Frame:</label>
+            <select id="frame-filter" class="filter-select">
+              <option value="all">All Frames</option>
+            </select>
+          </div>
+          <div class="control-group">
+            <label>
+              <input type="checkbox" id="show-all-columns">
+              Show all columns
+            </label>
+          </div>
           <button id="clear-data" class="clear-button">Clear Data</button>
           <span id="entry-count"></span>
+        </div>
+        <div class="column-controls" id="column-controls" style="display: none;">
+          <div class="column-toggle-header">
+            <span>Event Data Columns:</span>
+            <div class="toggle-all-buttons">
+              <button id="select-all-columns" class="toggle-button">All</button>
+              <button id="select-none-columns" class="toggle-button">None</button>
+            </div>
+          </div>
+          <div class="column-checkboxes" id="column-checkboxes"></div>
         </div>
         <div style="overflow: auto;">
           <table class="data-table" id="data-table">
@@ -74,6 +103,10 @@ class JSONLViewer {
     const dropZone = document.getElementById('drop-zone') as HTMLDivElement;
     const showAllCheckbox = document.getElementById('show-all-columns') as HTMLInputElement;
     const clearButton = document.getElementById('clear-data') as HTMLButtonElement;
+    const eventFilter = document.getElementById('event-filter') as HTMLSelectElement;
+    const frameFilter = document.getElementById('frame-filter') as HTMLSelectElement;
+    const selectAllColumns = document.getElementById('select-all-columns') as HTMLButtonElement;
+    const selectNoneColumns = document.getElementById('select-none-columns') as HTMLButtonElement;
 
     fileInput.addEventListener('change', (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
@@ -125,6 +158,28 @@ class JSONLViewer {
     clearButton.addEventListener('click', () => {
       this.clearData();
     });
+
+    eventFilter.addEventListener('change', (e) => {
+      this.selectedEventKey = (e.target as HTMLSelectElement).value;
+      this.applyFilters();
+    });
+
+    frameFilter.addEventListener('change', (e) => {
+      this.selectedFrame = (e.target as HTMLSelectElement).value;
+      this.applyFilters();
+    });
+
+    selectAllColumns.addEventListener('click', () => {
+      this.visibleEventColumns = new Set(this.eventDataColumns);
+      this.updateColumnCheckboxes();
+      this.renderTable();
+    });
+
+    selectNoneColumns.addEventListener('click', () => {
+      this.visibleEventColumns.clear();
+      this.updateColumnCheckboxes();
+      this.renderTable();
+    });
   }
 
   private async loadFile(file: File) {
@@ -149,7 +204,7 @@ class JSONLViewer {
     }
   }
 
-  private parseJSONL(text: string) {
+  private parseJSONL(text: string, saveToStorage: boolean = true) {
     try {
       const lines = text.trim().split('\n');
       const rawEntries: JSONLEntry[] = [];
@@ -173,10 +228,16 @@ class JSONLViewer {
 
       // Process entries
       this.entries = rawEntries.map(entry => this.processEntry(entry));
+      this.filteredEntries = [...this.entries];
       
-      // Save to localStorage
-      this.rawJSONL = text;
-      this.saveToStorage();
+      // Collect all unique event keys and frames
+      this.collectEventKeysAndFrames();
+      
+      // Save to localStorage only if requested
+      if (saveToStorage) {
+        this.rawJSONL = text;
+        this.saveToStorage();
+      }
       
       this.hideUploadSection();
       this.renderTable();
@@ -213,6 +274,152 @@ class JSONLViewer {
     tableContainer.style.display = 'block';
   }
 
+  private collectEventKeysAndFrames() {
+    const eventKeys = new Set<string>();
+    const frames = new Set<string>();
+    
+    const commonFields = ['frame_compile_id', 'frame_id', 'attempt', 'rank', 'process', 'thread'];
+    
+    this.entries.forEach(entry => {
+      // Collect event keys
+      const eventKey = Object.keys(entry).find(key => 
+        !commonFields.includes(key) && 
+        !this.hiddenColumns.includes(key)
+      );
+      if (eventKey) {
+        eventKeys.add(eventKey);
+      }
+      
+      // Collect frames
+      const frameId = entry.frame_id !== undefined ? entry.frame_id : '';
+      const compileId = entry.frame_compile_id !== undefined ? entry.frame_compile_id : '';
+      const attempt = entry.attempt || 0;
+      const frameStr = `${frameId}/${compileId}${attempt > 0 ? '_' + attempt : ''}`;
+      frames.add(frameStr);
+    });
+    
+    this.populateFilterDropdowns(Array.from(eventKeys).sort(), Array.from(frames).sort());
+    this.updateEventDataColumns();
+  }
+  
+  private updateEventDataColumns() {
+    const allEventDataColumns = new Set<string>();
+    const commonFields = ['frame_compile_id', 'frame_id', 'attempt', 'rank', 'process', 'thread'];
+    
+    // Only collect columns from entries that match the current filter
+    const entriesToCheck = this.selectedEventKey === 'all' ? this.entries : this.filteredEntries;
+    
+    entriesToCheck.forEach(entry => {
+      const eventKey = Object.keys(entry).find(key => 
+        !commonFields.includes(key) && 
+        !this.hiddenColumns.includes(key)
+      );
+      
+      if (eventKey && (this.selectedEventKey === 'all' || eventKey === this.selectedEventKey)) {
+        // Collect event data columns
+        if (typeof entry[eventKey] === 'object' && entry[eventKey] !== null) {
+          Object.keys(entry[eventKey]).forEach(subKey => {
+            allEventDataColumns.add(subKey);
+          });
+        }
+      }
+    });
+    
+    this.eventDataColumns = Array.from(allEventDataColumns).sort();
+    this.visibleEventColumns = new Set(this.eventDataColumns); // Show all by default
+    this.updateColumnControls();
+  }
+  
+  private populateFilterDropdowns(eventKeys: string[], frames: string[]) {
+    const eventFilter = document.getElementById('event-filter') as HTMLSelectElement;
+    const frameFilter = document.getElementById('frame-filter') as HTMLSelectElement;
+    
+    // Populate event filter
+    eventFilter.innerHTML = '<option value="all">All Events</option>';
+    eventKeys.forEach(key => {
+      eventFilter.innerHTML += `<option value="${key}">${key}</option>`;
+    });
+    
+    // Populate frame filter
+    frameFilter.innerHTML = '<option value="all">All Frames</option>';
+    frames.forEach(frame => {
+      frameFilter.innerHTML += `<option value="${frame}">${frame}</option>`;
+    });
+  }
+  
+  private updateColumnControls() {
+    const columnControls = document.getElementById('column-controls')!;
+    if (this.selectedEventKey !== 'all' && this.eventDataColumns.length > 0) {
+      columnControls.style.display = 'block';
+      this.updateColumnCheckboxes();
+    } else {
+      columnControls.style.display = 'none';
+    }
+  }
+  
+  private updateColumnCheckboxes() {
+    const columnCheckboxes = document.getElementById('column-checkboxes')!;
+    columnCheckboxes.innerHTML = '';
+    
+    this.eventDataColumns.forEach(column => {
+      const isChecked = this.visibleEventColumns.has(column);
+      columnCheckboxes.innerHTML += `
+        <label class="column-checkbox">
+          <input type="checkbox" value="${column}" ${isChecked ? 'checked' : ''}>
+          ${column}
+        </label>
+      `;
+    });
+    
+    // Add event listeners to checkboxes
+    columnCheckboxes.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+      checkbox.addEventListener('change', (e) => {
+        const target = e.target as HTMLInputElement;
+        const column = target.value;
+        if (target.checked) {
+          this.visibleEventColumns.add(column);
+        } else {
+          this.visibleEventColumns.delete(column);
+        }
+        this.renderTable();
+      });
+    });
+  }
+  
+  private applyFilters() {
+    const commonFields = ['frame_compile_id', 'frame_id', 'attempt', 'rank', 'process', 'thread'];
+    
+    this.filteredEntries = this.entries.filter(entry => {
+      // Filter by event key
+      if (this.selectedEventKey !== 'all') {
+        const eventKey = Object.keys(entry).find(key => 
+          !commonFields.includes(key) && 
+          !this.hiddenColumns.includes(key)
+        );
+        if (eventKey !== this.selectedEventKey) {
+          return false;
+        }
+      }
+      
+      // Filter by frame
+      if (this.selectedFrame !== 'all') {
+        const frameId = entry.frame_id !== undefined ? entry.frame_id : '';
+        const compileId = entry.frame_compile_id !== undefined ? entry.frame_compile_id : '';
+        const attempt = entry.attempt || 0;
+        const frameStr = `${frameId}/${compileId}${attempt > 0 ? '_' + attempt : ''}`;
+        if (frameStr !== this.selectedFrame) {
+          return false;
+        }
+      }
+      
+      return true;
+    });
+    
+    // Update event data columns based on filtered entries
+    this.updateEventDataColumns();
+    this.renderTable();
+  }
+
   private renderTable() {
     if (this.entries.length === 0) return;
 
@@ -223,7 +430,7 @@ class JSONLViewer {
     // Define the well-known common fields
     const commonFields = ['frame_compile_id', 'frame_id', 'attempt', 'rank', 'process', 'thread'];
     
-    // Create column structure: frame + visible common fields + hidden fields (if shown) + event key + event content
+    // Create column structure
     let columns = ['frame'];
     
     // Add common fields (excluding frame-related ones which are consolidated)
@@ -234,8 +441,16 @@ class JSONLViewer {
       columns.push(...this.hiddenColumns);
     }
     
-    // Add the event key and content columns
-    columns.push('event_key', 'event_content');
+    // Add event key column
+    columns.push('event_key');
+    
+    // If filtering by specific event and have event data columns, show individual columns
+    if (this.selectedEventKey !== 'all' && this.eventDataColumns.length > 0) {
+      columns.push(...this.eventDataColumns.filter(col => this.visibleEventColumns.has(col)));
+    } else {
+      // Otherwise show the JSON event content
+      columns.push('event_content');
+    }
 
     // Render header
     const headerRow = columns.map(col => {
@@ -246,29 +461,26 @@ class JSONLViewer {
     tableHead.innerHTML = `<tr>${headerRow}</tr>`;
 
     // Render body
-    const rows = this.entries.map(entry => {
+    const rows = this.filteredEntries.map(entry => {
       const cells = columns.map(col => {
         const isHidden = this.hiddenColumns.includes(col);
-        const className = (!this.showAllColumns && isHidden ? 'hidden ' : '') + 
-                          (col === 'event_content' ? 'json-cell' : '');
+        let className = (!this.showAllColumns && isHidden ? 'hidden ' : '');
         
         let value = '';
         
         if (col === 'frame') {
-          // Consolidated frame column
           const frameId = entry.frame_id !== undefined ? entry.frame_id : '';
           const compileId = entry.frame_compile_id !== undefined ? entry.frame_compile_id : '';
           const attempt = entry.attempt || 0;
           value = `${frameId}/${compileId}${attempt > 0 ? '_' + attempt : ''}`;
         } else if (col === 'event_key') {
-          // Find the event key (non-common, non-hidden field)
           const eventKey = Object.keys(entry).find(key => 
             !commonFields.includes(key) && 
             !this.hiddenColumns.includes(key)
           ) || '';
           value = eventKey;
         } else if (col === 'event_content') {
-          // Find the event key and stringify its content
+          className += 'json-cell';
           const eventKey = Object.keys(entry).find(key => 
             !commonFields.includes(key) && 
             !this.hiddenColumns.includes(key)
@@ -280,18 +492,35 @@ class JSONLViewer {
               value = String(entry[eventKey]);
             }
           }
+        } else if (this.eventDataColumns.includes(col)) {
+          // Event data column
+          const eventKey = Object.keys(entry).find(key => 
+            !commonFields.includes(key) && 
+            !this.hiddenColumns.includes(key)
+          );
+          if (eventKey && entry[eventKey] && typeof entry[eventKey] === 'object') {
+            const eventData = entry[eventKey][col];
+            if (eventData !== undefined) {
+              if (typeof eventData === 'object' && eventData !== null) {
+                className += 'json-cell';
+                value = JSON.stringify(eventData, null, 2);
+              } else {
+                value = String(eventData);
+              }
+            }
+          }
         } else {
           value = entry[col] !== undefined ? String(entry[col]) : '';
         }
         
-        return `<td class="${className}">${this.escapeHtml(value)}</td>`;
+        return `<td class="${className.trim()}">${this.escapeHtml(value)}</td>`;
       }).join('');
       
       return `<tr>${cells}</tr>`;
     }).join('');
     
     tableBody.innerHTML = rows;
-    entryCount.textContent = `${this.entries.length} entries`;
+    entryCount.textContent = `${this.filteredEntries.length} of ${this.entries.length} entries`;
   }
 
   private escapeHtml(unsafe: string): string {
@@ -326,7 +555,8 @@ class JSONLViewer {
     try {
       const savedData = localStorage.getItem(this.STORAGE_KEY);
       if (savedData) {
-        this.parseJSONL(savedData);
+        this.rawJSONL = savedData; // Set rawJSONL before parsing
+        this.parseJSONL(savedData, false); // Don't save to storage when loading
       }
     } catch (error) {
       console.warn('Failed to load from localStorage:', error);
@@ -340,6 +570,11 @@ class JSONLViewer {
       this.rawJSONL = '';
       this.stringTable = [];
       this.entries = [];
+      this.filteredEntries = [];
+      this.selectedEventKey = 'all';
+      this.selectedFrame = 'all';
+      this.eventDataColumns = [];
+      this.visibleEventColumns.clear();
       this.showUploadSection();
     } catch (error) {
       console.warn('Failed to clear localStorage:', error);

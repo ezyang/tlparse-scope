@@ -148,6 +148,77 @@ body {
   display: flex;
   gap: 1rem;
   align-items: center;
+  flex-wrap: wrap;
+}
+
+.control-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.filter-select {
+  padding: 0.4em 0.8em;
+  border-radius: 4px;
+  border: 1px solid #333;
+  background-color: #1a1a1a;
+  color: white;
+  font-size: 0.9em;
+  min-width: 120px;
+}
+
+.filter-select:focus {
+  outline: 2px solid #646cff;
+  border-color: transparent;
+}
+
+.column-controls {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  border: 1px solid #333;
+  border-radius: 8px;
+  background-color: #1a1a1a;
+}
+
+.column-toggle-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.toggle-all-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.toggle-button {
+  padding: 0.3em 0.6em;
+  border-radius: 4px;
+  border: 1px solid #333;
+  background-color: #333;
+  color: white;
+  cursor: pointer;
+  font-size: 0.8em;
+  transition: background-color 0.25s;
+}
+
+.toggle-button:hover {
+  background-color: #555;
+}
+
+.column-checkboxes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.5rem;
+}
+
+.column-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  cursor: pointer;
+  font-size: 0.9em;
 }
 
 .table-controls label {
@@ -242,5 +313,26 @@ body {
   .error {
     color: #d63384;
     background-color: #f8d7da;
+  }
+  
+  .filter-select {
+    background-color: white;
+    border-color: #ddd;
+    color: #213547;
+  }
+  
+  .column-controls {
+    background-color: #f5f5f5;
+    border-color: #ddd;
+  }
+  
+  .toggle-button {
+    background-color: #e9ecef;
+    border-color: #ddd;
+    color: #213547;
+  }
+  
+  .toggle-button:hover {
+    background-color: #dee2e6;
   }
 }

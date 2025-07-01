@@ -8,12 +8,16 @@ This is a TypeScript/Vite web application that provides a JSONL (JSON Lines) vie
 
 ## Development Commands
 
-- `npm run dev` - Start development server with hot reload
+- `npm run dev` - Start development server with hot reload (**NEVER RUN THIS** - it's an interactive daemon that won't exit)
 - `npm run build` - Build for production (runs TypeScript compiler then Vite build)  
 - `npm run preview` - Preview the production build locally
 - `npm test` - Run unit tests with Vitest
 - `npm run test:ui` - Run tests with Vitest UI
 - `npm run test:e2e` - Run end-to-end tests with Playwright
+
+## Important Instructions for Claude
+
+- **NEVER run `npm run dev`** - This starts an interactive development server that runs indefinitely and will hang the session
 
 ## Architecture
 

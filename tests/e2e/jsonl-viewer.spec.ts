@@ -1,7 +1,10 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'fs';
-import { join } from 'path';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 const testData = readFileSync(join(__dirname, '../../tests/fixtures/autotune_with_compile_id.jsonl'), 'utf-8');
 
 test.describe('JSONL Viewer', () => {
