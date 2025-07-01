@@ -18,6 +18,7 @@ This is a TypeScript/Vite web application that provides a JSONL (JSON Lines) vie
 ## Important Instructions for Claude
 
 - **NEVER run `npm run dev`** - This starts an interactive development server that runs indefinitely and will hang the session
+- `npm run test:e2e` runs the E2E tests, make sure to run them at the very end of development
 
 ## Architecture
 

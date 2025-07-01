@@ -226,6 +226,15 @@ class JSONLViewer {
         rawEntries.shift(); // Remove string table entry
       }
 
+      // Check if we have any data entries after removing string table
+      if (rawEntries.length === 0) {
+        this.entries = [];
+        this.filteredEntries = [];
+        this.hideUploadSection();
+        this.renderTable();
+        return;
+      }
+
       // Process entries
       this.entries = rawEntries.map(entry => this.processEntry(entry));
       this.filteredEntries = [...this.entries];
@@ -421,11 +430,14 @@ class JSONLViewer {
   }
 
   private renderTable() {
-    if (this.entries.length === 0) return;
-
     const tableHead = document.getElementById('table-head')!;
     const tableBody = document.getElementById('table-body')!;
     const entryCount = document.getElementById('entry-count')!;
+    
+    if (this.entries.length === 0) {
+      entryCount.textContent = '0 entries';
+      return;
+    }
 
     // Define the well-known common fields
     const commonFields = ['frame_compile_id', 'frame_id', 'attempt', 'rank', 'process', 'thread'];

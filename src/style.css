@@ -229,9 +229,10 @@ body {
 }
 
 .data-table {
-  width: 100%;
   border-collapse: collapse;
   font-size: 0.9rem;
+  min-width: 100%;
+  width: max-content;
 }
 
 .data-table th,
@@ -240,6 +241,9 @@ body {
   padding: 0.5rem;
   text-align: left;
   vertical-align: top;
+  word-wrap: break-word;
+  word-break: break-all;
+  overflow-wrap: break-word;
 }
 
 .data-table th {
@@ -250,11 +254,16 @@ body {
   z-index: 1;
 }
 
+.data-table th,
+.data-table td {
+  max-width: 300px;
+}
+
 .data-table .json-cell {
   font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
   white-space: pre-wrap;
   word-wrap: break-word;
-  max-width: 300px;
+  max-width: 400px;
 }
 
 .hidden {
