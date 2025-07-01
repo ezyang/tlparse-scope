@@ -29,9 +29,63 @@ class JSONLViewer {
     this.init();
   }
 
+  private updateUrlFromFilters() {
+    const url = new URL(window.location.href);
+    
+    if (this.selectedEventKey !== 'all') {
+      url.searchParams.set('event', this.selectedEventKey);
+    } else {
+      url.searchParams.delete('event');
+    }
+    
+    if (this.selectedFrame !== 'all') {
+      url.searchParams.set('frame', this.selectedFrame);
+    } else {
+      url.searchParams.delete('frame');
+    }
+    
+    if (this.showAllColumns) {
+      url.searchParams.set('showAll', 'true');
+    } else {
+      url.searchParams.delete('showAll');
+    }
+    
+    window.history.replaceState({}, '', url.toString());
+  }
+
+  private loadFiltersFromUrl() {
+    const url = new URL(window.location.href);
+    
+    const eventParam = url.searchParams.get('event');
+    if (eventParam) {
+      this.selectedEventKey = eventParam;
+    }
+    
+    const frameParam = url.searchParams.get('frame');
+    if (frameParam) {
+      this.selectedFrame = frameParam;
+    }
+    
+    const showAllParam = url.searchParams.get('showAll');
+    if (showAllParam === 'true') {
+      this.showAllColumns = true;
+    }
+  }
+
+  private syncFilterUIWithState() {
+    const eventFilter = document.getElementById('event-filter') as HTMLSelectElement;
+    const frameFilter = document.getElementById('frame-filter') as HTMLSelectElement;
+    const showAllCheckbox = document.getElementById('show-all-columns') as HTMLInputElement;
+    
+    if (eventFilter) eventFilter.value = this.selectedEventKey;
+    if (frameFilter) frameFilter.value = this.selectedFrame;
+    if (showAllCheckbox) showAllCheckbox.checked = this.showAllColumns;
+  }
+
   private init() {
     const app = document.querySelector<HTMLDivElement>('#app')!;
     app.innerHTML = this.getHTML();
+    this.loadFiltersFromUrl();
     this.setupEventListeners();
     this.loadFromStorage();
   }
@@ -85,7 +139,7 @@ class JSONLViewer {
           </div>
           <div class="column-checkboxes" id="column-checkboxes"></div>
         </div>
-        <div style="overflow: auto;">
+        <div class="table-wrapper">
           <table class="data-table" id="data-table">
             <thead id="table-head"></thead>
             <tbody id="table-body"></tbody>
@@ -152,6 +206,7 @@ class JSONLViewer {
 
     showAllCheckbox.addEventListener('change', (e) => {
       this.showAllColumns = (e.target as HTMLInputElement).checked;
+      this.updateUrlFromFilters();
       this.renderTable();
     });
 
@@ -161,11 +216,13 @@ class JSONLViewer {
 
     eventFilter.addEventListener('change', (e) => {
       this.selectedEventKey = (e.target as HTMLSelectElement).value;
+      this.updateUrlFromFilters();
       this.applyFilters();
     });
 
     frameFilter.addEventListener('change', (e) => {
       this.selectedFrame = (e.target as HTMLSelectElement).value;
+      this.updateUrlFromFilters();
       this.applyFilters();
     });
 
@@ -242,6 +299,9 @@ class JSONLViewer {
       // Collect all unique event keys and frames
       this.collectEventKeysAndFrames();
       
+      // Apply filters after populating dropdowns
+      this.applyFilters();
+      
       // Save to localStorage only if requested
       if (saveToStorage) {
         this.rawJSONL = text;
@@ -249,7 +309,6 @@ class JSONLViewer {
       }
       
       this.hideUploadSection();
-      this.renderTable();
       
     } catch (error) {
       this.showError('Failed to parse JSONL: ' + (error as Error).message);
@@ -354,6 +413,9 @@ class JSONLViewer {
     frames.forEach(frame => {
       frameFilter.innerHTML += `<option value="${frame}">${frame}</option>`;
     });
+    
+    // Sync UI with current filter values
+    this.syncFilterUIWithState();
   }
   
   private updateColumnControls() {
@@ -578,18 +640,29 @@ class JSONLViewer {
 
   private clearData() {
     try {
-      localStorage.removeItem(this.STORAGE_KEY);
+      if (import.meta.hot) {
+        delete import.meta.hot.data.jsonlData;
+      }
       this.rawJSONL = '';
       this.stringTable = [];
       this.entries = [];
       this.filteredEntries = [];
       this.selectedEventKey = 'all';
       this.selectedFrame = 'all';
+      this.showAllColumns = false;
       this.eventDataColumns = [];
       this.visibleEventColumns.clear();
+      
+      // Clear URL parameters
+      const url = new URL(window.location.href);
+      url.searchParams.delete('event');
+      url.searchParams.delete('frame');
+      url.searchParams.delete('showAll');
+      window.history.replaceState({}, '', url.toString());
+      
       this.showUploadSection();
     } catch (error) {
-      console.warn('Failed to clear localStorage:', error);
+      console.warn('Failed to clear hot data:', error);
     }
   }
 
