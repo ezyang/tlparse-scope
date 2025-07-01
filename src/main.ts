@@ -228,6 +228,7 @@ class JSONLViewer {
 
       // Check if we have any data entries after removing string table
       if (rawEntries.length === 0) {
+        console.log('No entries after removing string table, setting empty arrays');
         this.entries = [];
         this.filteredEntries = [];
         this.hideUploadSection();
@@ -435,7 +436,10 @@ class JSONLViewer {
     const entryCount = document.getElementById('entry-count')!;
     
     if (this.entries.length === 0) {
+      console.log('Entries length is 0, setting entry count');
+      console.log('Entry count element:', entryCount);
       entryCount.textContent = '0 entries';
+      console.log('Entry count text after setting:', entryCount.textContent);
       return;
     }
 
