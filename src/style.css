@@ -31,6 +31,9 @@ body {
   padding: 2rem;
   border-bottom: 1px solid #333;
   background-color: #1a1a1a;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
 }
 
 .upload-section h1 {
@@ -130,6 +133,10 @@ body {
   color: #666;
   margin-top: 1rem;
   transition: border-color 0.25s, color 0.25s;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .drop-zone.drag-over {

@@ -269,7 +269,8 @@ test.describe('JSONL Viewer', () => {
       buffer: Buffer.from(onlyStringTable)
     });
 
-    // Should show error or empty table
+    // Should show table container and 0 entries
+    await expect(page.locator('#table-container')).toBeVisible();
     await expect(page.locator('#entry-count')).toContainText('0 entries');
   });
 
