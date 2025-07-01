@@ -13,10 +13,12 @@ class JSONLViewer {
   private stringTable: string[] = [];
   private entries: ProcessedEntry[] = [];
   private showAllColumns = false;
+  private rawJSONL: string = '';
   
   private readonly hiddenColumns = [
     'timestamp', 'pathname', 'lineno', 'has_payload', 'payload_filename', 'rank', 'process', 'thread'
   ];
+  private readonly STORAGE_KEY = 'tlparse-jsonl-data';
 
   constructor() {
     this.init();
@@ -26,6 +28,7 @@ class JSONLViewer {
     const app = document.querySelector<HTMLDivElement>('#app')!;
     app.innerHTML = this.getHTML();
     this.setupEventListeners();
+    this.loadFromStorage();
   }
 
   private getHTML(): string {
@@ -50,6 +53,7 @@ class JSONLViewer {
             <input type="checkbox" id="show-all-columns">
             Show all columns
           </label>
+          <button id="clear-data" class="clear-button">Clear Data</button>
           <span id="entry-count"></span>
         </div>
         <div style="overflow: auto;">
@@ -69,6 +73,7 @@ class JSONLViewer {
     const loadUrlButton = document.getElementById('load-url') as HTMLButtonElement;
     const dropZone = document.getElementById('drop-zone') as HTMLDivElement;
     const showAllCheckbox = document.getElementById('show-all-columns') as HTMLInputElement;
+    const clearButton = document.getElementById('clear-data') as HTMLButtonElement;
 
     fileInput.addEventListener('change', (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
@@ -115,6 +120,10 @@ class JSONLViewer {
     showAllCheckbox.addEventListener('change', (e) => {
       this.showAllColumns = (e.target as HTMLInputElement).checked;
       this.renderTable();
+    });
+
+    clearButton.addEventListener('click', () => {
+      this.clearData();
     });
   }
 
@@ -164,6 +173,10 @@ class JSONLViewer {
 
       // Process entries
       this.entries = rawEntries.map(entry => this.processEntry(entry));
+      
+      // Save to localStorage
+      this.rawJSONL = text;
+      this.saveToStorage();
       
       this.hideUploadSection();
       this.renderTable();
@@ -299,6 +312,46 @@ class JSONLViewer {
     setTimeout(() => {
       errorElement.style.display = 'none';
     }, 5000);
+  }
+
+  private saveToStorage() {
+    try {
+      localStorage.setItem(this.STORAGE_KEY, this.rawJSONL);
+    } catch (error) {
+      console.warn('Failed to save to localStorage:', error);
+    }
+  }
+
+  private loadFromStorage() {
+    try {
+      const savedData = localStorage.getItem(this.STORAGE_KEY);
+      if (savedData) {
+        this.parseJSONL(savedData);
+      }
+    } catch (error) {
+      console.warn('Failed to load from localStorage:', error);
+      localStorage.removeItem(this.STORAGE_KEY);
+    }
+  }
+
+  private clearData() {
+    try {
+      localStorage.removeItem(this.STORAGE_KEY);
+      this.rawJSONL = '';
+      this.stringTable = [];
+      this.entries = [];
+      this.showUploadSection();
+    } catch (error) {
+      console.warn('Failed to clear localStorage:', error);
+    }
+  }
+
+  private showUploadSection() {
+    const uploadSection = document.getElementById('upload-section')!;
+    const tableContainer = document.getElementById('table-container')!;
+    
+    uploadSection.style.display = 'block';
+    tableContainer.style.display = 'none';
   }
 }
 

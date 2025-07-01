@@ -107,6 +107,21 @@ body {
   cursor: not-allowed;
 }
 
+.clear-button {
+  padding: 0.6em 1.2em;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background-color: #dc3545;
+  color: white;
+  cursor: pointer;
+  font-size: 1em;
+  transition: background-color 0.25s;
+}
+
+.clear-button:hover {
+  background-color: #c82333;
+}
+
 .drop-zone {
   border: 2px dashed #333;
   border-radius: 8px;
