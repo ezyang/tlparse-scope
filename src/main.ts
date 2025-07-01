@@ -19,6 +19,7 @@ class JSONLViewer {
   private selectedFrame: string = 'all';
   private eventDataColumns: string[] = [];
   private visibleEventColumns: Set<string> = new Set();
+  private tensorIndex: Map<number, any> = new Map();
   
   private readonly hiddenColumns = [
     'timestamp', 'pathname', 'lineno', 'has_payload', 'payload_filename', 'rank', 'process', 'thread'
@@ -293,7 +294,7 @@ class JSONLViewer {
       }
 
       // Process entries
-      this.entries = rawEntries.map(entry => this.processEntry(entry));
+      this.entries = this.processEntries(rawEntries);
       this.filteredEntries = [...this.entries];
       
       // Collect all unique event keys and frames
@@ -313,6 +314,50 @@ class JSONLViewer {
     } catch (error) {
       this.showError('Failed to parse JSONL: ' + (error as Error).message);
     }
+  }
+
+  private processEntries(rawEntries: JSONLEntry[]): ProcessedEntry[] {
+    // Clear tensor index for each new dataset
+    this.tensorIndex.clear();
+    
+    const processedEntries: ProcessedEntry[] = [];
+    
+    for (const entry of rawEntries) {
+      const processed = this.processEntry(entry);
+      
+      // Build tensor index from describe_tensor events
+      if (processed.describe_tensor) {
+        const tensorData = processed.describe_tensor;
+        if (tensorData.describer_id !== undefined) {
+          this.tensorIndex.set(tensorData.describer_id, tensorData);
+        }
+      }
+      
+      // Join describe_source events with tensor data
+      if (processed.describe_source) {
+        const sourceData = processed.describe_source;
+        if (sourceData.describer_id !== undefined) {
+          const tensorData = this.tensorIndex.get(sourceData.describer_id);
+          if (tensorData) {
+            // Create joined event with all tensor columns inlined
+            const joinedData = { ...sourceData };
+            
+            // Add all tensor fields except id/describer_id to avoid conflicts
+            Object.keys(tensorData).forEach(key => {
+              if (key !== 'id' && key !== 'describer_id') {
+                joinedData[key] = tensorData[key];
+              }
+            });
+            
+            processed.describe_source = joinedData;
+          }
+        }
+      }
+      
+      processedEntries.push(processed);
+    }
+    
+    return processedEntries;
   }
 
   private processEntry(entry: JSONLEntry): ProcessedEntry {
@@ -505,7 +550,12 @@ class JSONLViewer {
     const commonFields = ['frame_compile_id', 'frame_id', 'attempt', 'rank', 'process', 'thread'];
     
     // Create column structure
-    let columns = ['frame'];
+    let columns: string[] = [];
+    
+    // Add frame column (only if not filtering by specific frame)
+    if (this.selectedFrame === 'all') {
+      columns.push('frame');
+    }
     
     // Add common fields (excluding frame-related ones which are consolidated)
     columns.push(...commonFields.filter(col => !['frame_compile_id', 'frame_id', 'attempt'].includes(col)));
@@ -515,8 +565,10 @@ class JSONLViewer {
       columns.push(...this.hiddenColumns);
     }
     
-    // Add event key column
-    columns.push('event_key');
+    // Add event key column (only if not filtering by specific event)
+    if (this.selectedEventKey === 'all') {
+      columns.push('event_key');
+    }
     
     // If filtering by specific event and have event data columns, show individual columns
     if (this.selectedEventKey !== 'all' && this.eventDataColumns.length > 0) {
@@ -650,6 +702,7 @@ class JSONLViewer {
       this.showAllColumns = false;
       this.eventDataColumns = [];
       this.visibleEventColumns.clear();
+      this.tensorIndex.clear();
       
       // Clear URL parameters
       const url = new URL(window.location.href);
