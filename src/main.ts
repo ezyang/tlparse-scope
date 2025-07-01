@@ -15,7 +15,7 @@ class JSONLViewer {
   private showAllColumns = false;
   
   private readonly hiddenColumns = [
-    'timestamp', 'pathname', 'lineno', 'has_payload', 'payload_filename'
+    'timestamp', 'pathname', 'lineno', 'has_payload', 'payload_filename', 'rank', 'process', 'thread'
   ];
 
   constructor() {
