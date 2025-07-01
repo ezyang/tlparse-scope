@@ -640,9 +640,7 @@ class JSONLViewer {
 
   private clearData() {
     try {
-      if (import.meta.hot) {
-        delete import.meta.hot.data.jsonlData;
-      }
+      localStorage.removeItem(this.STORAGE_KEY);
       this.rawJSONL = '';
       this.stringTable = [];
       this.entries = [];
@@ -662,7 +660,7 @@ class JSONLViewer {
       
       this.showUploadSection();
     } catch (error) {
-      console.warn('Failed to clear hot data:', error);
+      console.warn('Failed to clear localStorage:', error);
     }
   }
 
